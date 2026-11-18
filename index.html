@@ -87,13 +87,13 @@
 
   <div class="help">
     <b>Sesli komutlar:</b> "<b>yeni satır</b>" → alt satır · "<b>yeni fiş</b>" → yeni fiş başlığı · "<b>sil son</b>" → son parçayı siler · "<b>okunmuyor</b>" → <b>[OKUNMUYOR]</b> etiketi koyar.<br>
-    <b>Okuma sırası önerisi:</b> "şirket <i>Mümin Kısalık</i> · tarih <i>01092026</i> · palet <i>petek yığma 6 çarpı 229, 1374 adet</i> · <i>05 KT 520</i> plakası" → sonra "yeni fiş". Plakayı harf harf okuyabilirsin: "sıfır beş <b>ka te</b> beş yüz yirmi". Ayarlardan <b>Sayıları rakama çevir</b> ve <b>Alanları satıra böl</b>'ü aç. Metin bu cihazda otomatik saklanır.
+    <b>Akış:</b> "<b>yeni fiş</b>" → "fiş no 315" → fişte ne görüyorsan olduğu gibi oku. Metin ham yazılır, Claude çözer. Metin bu cihazda otomatik saklanır.
   </div>
 
   <details class="help" id="setbox">
     <summary>⚙️ Ayarlar</summary>
-    <label class="set"><input type="checkbox" id="s_num"><span>Sayıları rakama çevir (önerilir)<small>Tarih: "01092026" → 01.09.2026 · Palet: "altı çarpı iki yüz yirmi dokuz bin üç yüz yetmiş dört" → 6 × 229 = 1374 (tutmazsa [KONTROL]) · Plaka: "sıfır beş ka te beş yüz yirmi" → 05 KT 520 · Tutar: "bin iki yüz elli virgül yetmiş beş" → 1.250,75. Kapalıyken ham metin yazılır. Sadece yeni dikteyi etkiler.</small></span></label>
-    <label class="set"><input type="checkbox" id="s_fields"><span>Alanları satıra böl<small>"şirket … tarih … palet … plakası" → her alan kendi satırında: <b>şirket:</b> / <b>tarih:</b> / <b>palet:</b> / <b>plaka:</b>. Önünde sayı olan kelime ("6 palet") bölünmez.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_num"><span>Sayıları rakama çevir (isteğe bağlı, gerek yok)<small>Tarih: "01092026" → 01.09.2026 · Palet: "altı çarpı iki yüz yirmi dokuz bin üç yüz yetmiş dört" → 6 × 229 = 1374 (tutmazsa [KONTROL]) · Plaka: "sıfır beş ka te beş yüz yirmi" → 05 KT 520 · Tutar: "bin iki yüz elli virgül yetmiş beş" → 1.250,75. Kapalıyken ham metin yazılır. Sadece yeni dikteyi etkiler.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_fields"><span>Alanları satıra böl (isteğe bağlı, gerek yok)<small>"şirket … tarih … palet … plakası" → her alan kendi satırında: <b>şirket:</b> / <b>tarih:</b> / <b>palet:</b> / <b>plaka:</b>. Önünde sayı olan kelime ("6 palet") bölünmez.</small></span></label>
     <label class="set" style="display:block"><span>Alan kelimeleri (virgülle)</span><input type="text" id="s_fw" style="width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:16px" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <label class="set"><input type="checkbox" id="s_dedupe"><span>Tekrar eden metni engelle<small>iPhone'da aynı cümlenin iki kez yazılmasını önler. Arka arkaya aynı tutarı okurken bir tanesi kayboluyorsa kapat.</small></span></label>
     <label class="set"><input type="checkbox" id="s_sound"><span>Dinleme durunca sesli uyar<small>Sessiz modu (yan tuş) kapalı olmalı.</small></span></label>
@@ -116,7 +116,7 @@
 <script>
 (function(){
   'use strict';
-  const APP_VER='1.1.0';
+  const APP_VER='1.2.0';
   const $ = id => document.getElementById(id);
   const txt=$('txt'), live=$('live'), mic=$('mic'), dot=$('dot'), stxt=$('stxt'), alertEl=$('alert');
   const KEY='fis-dikte-v1', SKEY='fis-dikte-ayar-v1';
@@ -387,6 +387,7 @@
       if(m || !cur){ cur={title: m?'Fiş '+m[1]:'Başlıksız', start:pos, lines:[]}; out.push(cur); }
       cur.lines.push(line); cur.end=pos+line.length; pos+=line.length+1;
     });
+    out.forEach(b=>{ const m=b.lines.join(' ').match(/fi[şs]\s*(?:no|numarası|numara)\s*[:.]?\s*(\d+)/i); if(m) b.title+=' · No '+m[1]; });
     return out.map(b=>({title:b.title,start:b.start,end:b.end,text:b.lines.join('\n').trim()})).filter(b=>b.text || b.title!=='Başlıksız');
   }
   function fillFisSelect(){

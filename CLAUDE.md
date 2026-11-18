@@ -5,6 +5,8 @@ Tuğla satışında gönderilen **tırın sevk fişlerini** sesli okuyup Türkç
 Metin kopyalanıp analiz için Claude'a verilir. GitHub Pages'te statik olarak yayınlanır; sunucu, derleme, bağımlılık yok.
 
 ## Fiş tipi
+**Kullanım akışı:** "yeni fiş" → "fiş no 315" → fişte yazanlar ham olarak okunur; deşifreyi Claude yapar. Sayı çevirme / alan bölme isteğe bağlı, varsayılan kapalı — ham metni bozacak özellik ekleme.
+
 Market fişi değil, tuğla sevk fişi. Tipik okuma:
 `şirket mümin kısalık tarih 01092026 palet petek yığma 6 çarpı 229 1374 adet 05 kt 520 plakası`
 Sayı çevirme + alan bölme açıkken çıktı:

@@ -1,7 +1,7 @@
 # ROADMAP — Fiş Dikte
 
 ## Durum
-**v1.1.0** — Tuğla sevk fişine uyarlandı. PWA + iOS sağlamlaştırma tamam, sahte tanıyıcıyla testler geçiyor. **iPhone'da gerçek test bekliyor.**
+**v1.2.0** — Ham metin akışı (yeni fiş → fiş no → serbest okuma). PWA + iOS sağlamlaştırma tamam, sahte tanıyıcıyla testler geçiyor. **iPhone'da gerçek test bekliyor.**
 
 ## Yapıldı (v1.1.0) — tuğla sevk fişi
 - [x] Tarih: "01092026", "sıfır bir sıfır dokuz iki bin yirmi altı", "bir eylül iki bin yirmi altı" → 01.09.2026
@@ -43,5 +43,6 @@
 - Birden fazla oturum / geçmiş arşivi
 
 ## Değişiklik kaydı
+- **1.2.0** (2026-11-18) — Varsayılan akış ham metin: "yeni fiş" → "fiş no 315" → serbest okuma. Fiş listesinde fiş no görünür. Sayı/alan çevirme isteğe bağlı kaldı.
 - **1.1.0** (2026-11-18) — Tuğla sevk fişi: tarih, plaka, palet çarpımı kontrolü, alanları satıra böl.
 - **1.0.0** (2026-11-18) — İlk PWA sürümü.
