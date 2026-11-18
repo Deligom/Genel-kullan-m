@@ -35,7 +35,6 @@
 - [ ] Tarih: "on sekiz on bir iki bin yirmi altı" (gün ay yıl yazıyla) → 18.11.2026
 - [ ] Palet tipleri sözlüğü (petek, yığma, …) — tanıyıcının yanlış duyduğu kelimeleri düzeltme
 - [ ] "Claude için kopyala": fişleri tablo halinde analiz ettirecek hazır talimatla kopyalama
-- [ ] "Claude için kopyala": metnin başına analiz talimatı ekleyerek kopyalama
 - [ ] Gün sonu özeti: şirket bazında toplam palet / adet
 - [ ] Metni .txt olarak paylaş (Web Share API)
 
