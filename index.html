@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fiş Dikte</title>
+<meta name="description" content="Fişleri sesli oku, Türkçe yazıya dönsün.">
+<meta name="theme-color" content="#0f1115">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fiş Dikte">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--line:#2a2f3a;--text:#e9ecf1;--muted:#8b93a3;--accent:#3b82f6;--rec:#ef4444;--ok:#22c55e;--warn:#f59e0b;
+        --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:720px;margin:0 auto;padding:calc(10px + var(--st)) 14px calc(130px + var(--sb))}
+  h1{font-size:18px;margin:4px 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:8px}
+  .status{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin:8px 0}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+  .dot.on{background:var(--rec);animation:p 1.2s infinite}
+  @keyframes p{50%{opacity:.35}}
+  .live{min-height:24px;color:var(--muted);font-style:italic;padding:4px 2px}
+  /* 16px+ font: iOS odaklanınca sayfayı büyütmesin */
+  textarea{width:100%;min-height:48vh;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:17px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical;-webkit-appearance:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  button,select{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;padding:10px 14px;font-size:15px;cursor:pointer;font-family:inherit}
+  select{-webkit-appearance:none;appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+  button:active{transform:scale(.97)}
+  .grp{display:flex;gap:0}
+  .grp select{border-radius:10px 0 0 10px;border-right:none;max-width:9.5em}
+  .grp button{border-radius:0 10px 10px 0}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 14px calc(14px + var(--sb))}
+  .bar .in{max-width:720px;margin:0 auto;display:flex;gap:10px}
+  #mic{flex:1;padding:16px;font-size:18px;font-weight:600;background:var(--accent);border:none}
+  #mic.on{background:var(--rec)}
+  #fis{padding:16px 18px;font-weight:600}
+  .alert{display:none;position:fixed;inset:0;background:rgba(239,68,68,.94);color:#fff;z-index:9;align-items:center;justify-content:center;flex-direction:column;text-align:center;font-size:24px;font-weight:700;padding:30px;animation:p 1s infinite;user-select:none;-webkit-user-select:none}
+  .alert.show{display:flex}
+  .alert small{display:block;font-size:15px;font-weight:500;margin-top:14px;opacity:.9}
+  .help{font-size:13px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px}
+  .help b{color:var(--text)}
+  details.help summary{cursor:pointer;color:var(--text);font-weight:600;font-size:14px}
+  .set{display:flex;align-items:flex-start;gap:10px;margin:10px 0;font-size:14px;color:var(--text)}
+  .set input{width:20px;height:20px;margin:1px 0 0;flex:none}
+  .set span small{display:block;color:var(--muted);font-size:12px}
+  pre.log{white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:#0b0d11;border-radius:8px;padding:8px;margin:8px 0 0;color:#a5b4c8}
+  .toast{position:fixed;top:calc(12px + var(--st));left:50%;transform:translateX(-50%);background:var(--ok);color:#000;padding:8px 14px;border-radius:8px;font-weight:600;display:none;z-index:10;max-width:90vw;text-align:center}
+  .warnbox{display:none;background:#3a2a0a;border:1px solid var(--warn);color:#fde68a;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+  .errbox{display:none;background:#3a0f12;border:1px solid var(--rec);color:#fecaca;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+  .ver{color:var(--muted);font-size:11px;margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fiş Dikte</h1>
+  <div class="sub">Fişi sesli oku, yazıya geçsin. Sustuğunda kapanırsa kendisi tekrar başlar.</div>
+
+  <div class="warnbox" id="nojs" style="display:block">⚠️ Sayfa çalışmıyor: bir önizleyicide açılmış. Bağlantıyı <b>Safari</b> (iPhone) veya <b>Chrome</b> ile aç.</div>
+  <div class="warnbox" id="nodict"></div>
+  <div class="errbox" id="err"></div>
+
+  <div class="status"><span class="dot" id="dot"></span><span id="stxt">Hazır</span><span id="cnt" style="margin-left:auto"></span></div>
+  <div class="live" id="live"></div>
+  <textarea id="txt" placeholder="Okudukların buraya yazılacak. İstediğin yeri elle düzeltebilirsin." autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+
+  <div class="row">
+    <button id="nl">↵ Yeni satır</button>
+    <button id="okn">[OKUNMUYOR]</button>
+    <button id="undo">⟲ Son parçayı sil</button>
+    <button id="clear">🗑 Temizle</button>
+  </div>
+  <div class="row">
+    <button id="copy">📋 Tümünü kopyala</button>
+    <div class="grp">
+      <select id="fsel" aria-label="Kopyalanacak fiş"></select>
+      <button id="copyone">📄 Bu fişi kopyala</button>
+    </div>
+  </div>
+
+  <div class="help">
+    <b>Sesli komutlar:</b> "<b>yeni satır</b>" → alt satır · "<b>yeni fiş</b>" → yeni fiş başlığı · "<b>sil son</b>" → son parçayı siler · "<b>okunmuyor</b>" → <b>[OKUNMUYOR]</b> etiketi koyar.<br>
+    <b>İpucu:</b> Kuruşları "virgül" diyerek oku (ör. "bin iki yüz elli virgül yetmiş beş"). Metin bu cihazda otomatik saklanır.
+  </div>
+
+  <details class="help" id="setbox">
+    <summary>⚙️ Ayarlar</summary>
+    <label class="set"><input type="checkbox" id="s_num"><span>Sayıları rakama çevir<small>"bin iki yüz elli virgül yetmiş beş" → 1.250,75 · "yüzde yirmi" → %20 · "on lira elli kuruş" → 10,50 TL. Kapalıyken tanıyıcının ham metni olduğu gibi yazılır. Sadece yeni dikteyi etkiler.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_dedupe"><span>Tekrar eden metni engelle<small>iPhone'da aynı cümlenin iki kez yazılmasını önler. Arka arkaya aynı tutarı okurken bir tanesi kayboluyorsa kapat.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_sound"><span>Dinleme durunca sesli uyar<small>Sessiz modu (yan tuş) kapalı olmalı.</small></span></label>
+    <div class="row"><button id="tsound">🔔 Sesi test et</button><button id="clog">Günlüğü kopyala</button></div>
+    <details style="margin-top:10px"><summary style="font-weight:500;font-size:13px">Tanılama günlüğü</summary><pre class="log" id="log"></pre></details>
+  </details>
+
+  <div class="ver" id="ver"></div>
+</div>
+
+<div class="bar"><div class="in">
+  <button id="fis">+ Fiş</button>
+  <button id="mic">🎙 Başla</button>
+</div></div>
+
+<div class="alert" id="alert"><div>Dinleme durdu.<br>Devam etmek için<br>ekrana dokun</div><small id="areason"></small></div>
+<div class="toast" id="toast"></div>
+
+<script src="tr-sayi.js"></script>
+<script>
+(function(){
+  'use strict';
+  const APP_VER='1.0.0';
+  const $ = id => document.getElementById(id);
+  const txt=$('txt'), live=$('live'), mic=$('mic'), dot=$('dot'), stxt=$('stxt'), alertEl=$('alert');
+  const KEY='fis-dikte-v1', SKEY='fis-dikte-ayar-v1';
+  const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const standalone=!!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  let want=false, listening=false, history=[], fisNo=0;
+
+  // ---------- tanılama günlüğü ----------
+  const logLines=[];
+  function log(m){
+    const d=new Date(), t=d.toTimeString().slice(0,8)+'.'+String(d.getMilliseconds()).padStart(3,'0');
+    logLines.push(t+'  '+m); if(logLines.length>80) logLines.shift();
+    const el=$('log'); if(el) el.textContent=logLines.join('\n');
+  }
+
+  // ---------- ayarlar ----------
+  const settings={num:false, dedupe:true, sound:true};
+  try{ Object.assign(settings, JSON.parse(localStorage.getItem(SKEY)||'{}')); }catch(e){}
+  function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(settings)); }catch(e){} }
+  [['s_num','num'],['s_dedupe','dedupe'],['s_sound','sound']].forEach(([id,k])=>{
+    const el=$(id); el.checked=!!settings[k];
+    el.addEventListener('change',()=>{ settings[k]=el.checked; saveSettings(); log('ayar '+k+'='+el.checked); });
+  });
+
+  // ---------- kayıt ----------
+  function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)||'{}'); txt.value=s.t||''; fisNo=s.n||0; }catch(e){} count(); }
+  let fselTimer=null;
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify({t:txt.value,n:fisNo})); }catch(e){} count(); clearTimeout(fselTimer); fselTimer=setTimeout(fillFisSelect,150); }
+  function count(){ const w=txt.value.trim()?txt.value.trim().split(/\s+/).length:0; $('cnt').textContent = w+' kelime'+(fisNo?' · '+fisNo+' fiş':''); }
+  txt.addEventListener('input', save);
+
+  function toast(m,ms){ const t=$('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',ms||1500); }
+  function showErr(m){ const e=$('err'); if(!m){ e.style.display='none'; e.textContent=''; return; } e.textContent='⚠️ '+m; e.style.display='block'; }
+
+  // ---------- metin işlemleri ----------
+  function append(s){
+    if(!s) return;
+    const v=txt.value;
+    const needSpace = v && !/\s$/.test(v);
+    const piece = (needSpace?' ':'')+s;
+    history.push(piece);
+    txt.value = v+piece; save(); txt.scrollTop=txt.scrollHeight;
+  }
+  function newLine(){ history.push('\n'); txt.value += '\n'; save(); txt.scrollTop=txt.scrollHeight; }
+  function newFis(){
+    fisNo++;
+    const v=txt.value;
+    const p=(v && !v.endsWith('\n')?'\n':'')+(v?'\n':'')+'=== FİŞ '+fisNo+' ===\n';
+    history.push(p); txt.value+=p; save(); txt.scrollTop=txt.scrollHeight; toast('Fiş '+fisNo);
+    setTimeout(()=>{ fillFisSelect(); $('fsel').value=String(blocks().length-1); },0);
+  }
+  function undo(){
+    const p=history.pop(); if(p===undefined){ toast('Silinecek yok'); return; }
+    if(txt.value.endsWith(p)){ txt.value=txt.value.slice(0,-p.length); if(/=== FİŞ/.test(p)) fisNo=Math.max(0,fisNo-1); save(); toast('Silindi'); }
+    else toast('Elle düzenlenmiş, silinmedi');
+  }
+  const unreadable=()=>append('[OKUNMUYOR]');
+
+  // Türkçe harflerde \b çalışmaz; harf/rakam olmayan sınır kullan
+  const CMD_RE=/(?<![\p{L}\p{N}])(yeni satır|yeni satir|alt satır|alt satir|yeni fiş|yeni fis|sil son|son parçayı sil|okunmuyor|okunmuyo)(?![\p{L}\p{N}])/gu;
+  function conv(s){ s=s.trim(); if(!s) return ''; if(settings.num && window.TrSayi){ try{ return TrSayi.convert(s); }catch(e){ log('sayı hatası '+e.message); } } return s; }
+  function handleFinal(raw){
+    const t=(raw||'').trim(); if(!t) return;
+    const low=t.toLocaleLowerCase('tr-TR'); // tr-TR'de uzunluk değişmez, indeksler eşleşir
+    let last=0, m; CMD_RE.lastIndex=0;
+    while((m=CMD_RE.exec(low))){
+      append(conv(t.slice(last,m.index).replace(/[\s.,;:!?]+$/,'')));
+      const c=m[1];
+      if(c.startsWith('yeni f')) newFis();
+      else if(c.includes('sil')) undo();
+      else if(c.startsWith('okunmuyo')) unreadable();
+      else newLine();
+      last=CMD_RE.lastIndex;
+    }
+    append(conv(t.slice(last).replace(/^[\s.,;:!?]+/,'')));
+  }
+
+  // ---------- tekrar engelleme (iOS) ----------
+  const norm=s=>(s||'').toLocaleLowerCase('tr-TR').replace(/[.,!?;:"'“”]/g,'').replace(/\s+/g,' ').trim();
+  let lastFinal={n:'',at:0};
+  function commitText(t, src){
+    let n=norm(t); if(!n) return;
+    if(settings.dedupe){
+      const age=Date.now()-lastFinal.at;
+      if(n===lastFinal.n && age<1500){ log('TEKRAR atlandı ('+src+'): '+t); return; }
+      const lw=lastFinal.n ? lastFinal.n.split(' ') : [];
+      if(lw.length>=2 && age<5000 && (n+' ').startsWith(lastFinal.n+' ')){
+        const full=n;
+        t=t.trim().split(/\s+/).slice(lw.length).join(' ');
+        log('BİRİKMİŞ önek kırpıldı ('+src+') → '+t);
+        lastFinal={n:full,at:Date.now()};
+        if(!norm(t)) return;
+        handleFinal(t); return;
+      }
+    }
+    lastFinal={n,at:Date.now()};
+    log('yaz ('+src+'): '+t);
+    handleFinal(t);
+  }
+
+  // ---------- arayüz durumu ----------
+  function setUI(){
+    mic.classList.toggle('on', want);
+    mic.textContent = want ? '⏹ Durdur' : '🎙 Başla';
+    dot.classList.toggle('on', listening);
+    stxt.textContent = listening ? 'Dinliyor…' : (want ? 'Yeniden başlatılıyor…' : 'Hazır');
+  }
+
+  // ---------- uyarı sesi (iOS'ta vibrate yok) ----------
+  let actx=null;
+  function unlockAudio(){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      if(!actx){ actx=new AC(); log('AudioContext oluşturuldu'); }
+      if(actx.state!=='running') actx.resume();
+      const b=actx.createBuffer(1,1,22050), s=actx.createBufferSource(); s.buffer=b; s.connect(actx.destination); s.start(0);
+    }catch(e){ log('ses açılamadı '+e.message); }
+  }
+  function beep(force){
+    if(!force && !settings.sound) return;
+    try{ navigator.vibrate && navigator.vibrate([300,150,300]); }catch(e){}
+    if(!actx) return;
+    try{
+      if(actx.state!=='running') actx.resume();
+      const t0=actx.currentTime+0.02;
+      [[0,880],[0.22,660],[0.44,880]].forEach(([o,f])=>{
+        const osc=actx.createOscillator(), g=actx.createGain();
+        osc.type='square'; osc.frequency.value=f;
+        g.gain.setValueAtTime(0.0001,t0+o);
+        g.gain.exponentialRampToValueAtTime(0.3,t0+o+0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+o+0.18);
+        osc.connect(g); g.connect(actx.destination); osc.start(t0+o); osc.stop(t0+o+0.2);
+      });
+    }catch(e){ log('bip hatası '+e.message); }
+  }
+
+  // ---------- tam ekran kırmızı uyarı ----------
+  let alertOn=false, beepTimer=null, beepCount=0;
+  function needTap(reason){
+    if(!want) return;
+    if(alertOn) return;
+    alertOn=true; $('areason').textContent=reason||''; alertEl.classList.add('show');
+    log('DOKUNUŞ GEREKLİ: '+(reason||'')); stxt.textContent='Durdu — dokun';
+    beepCount=0; beep(); clearInterval(beepTimer);
+    beepTimer=setInterval(()=>{ if(!alertOn || ++beepCount>20){ clearInterval(beepTimer); return; } beep(); }, 3000);
+  }
+  function hideAlert(){ alertOn=false; alertEl.classList.remove('show'); clearInterval(beepTimer); }
+
+  // ---------- ekran kilidi ----------
+  let wl=null;
+  async function lock(){ try{ if('wakeLock' in navigator && !wl){ wl=await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{wl=null;}); log('wake lock alındı'); } }catch(e){ log('wake lock yok: '+e.name); } }
+  function unlock(){ try{ wl&&wl.release(); }catch(e){} wl=null; }
+
+  // ---------- ses tanıma ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ERR_TR={
+    'not-allowed':'Mikrofon izni reddedildi. iPhone: Ayarlar › Safari › Mikrofon › "İzin Ver" seç (veya adres çubuğundaki "aA" › Web Sitesi Ayarları › Mikrofon). Sonra sayfayı yenile.',
+    'service-not-allowed':'Ses tanıma hizmeti kullanılamıyor. iPhone: Ayarlar › Genel › Klavye › "Dikteyi Etkinleştir" ve Ayarlar › Siri açık olmalı. Ana ekran uygulamasında çalışmıyorsa Safari\'de aç.',
+    'network':'İnternet bağlantısı yok ya da ses tanıma sunucusuna ulaşılamıyor. Bağlantıyı kontrol et; metin kaybolmadı.',
+    'audio-capture':'Mikrofona erişilemiyor. Başka bir uygulama (arama, kayıt) mikrofonu kullanıyor olabilir.',
+    'language-not-supported':'Bu cihazda Türkçe ses tanıma desteklenmiyor. iPhone: Ayarlar › Genel › Klavye › Klavyeler\'e Türkçe ekle.',
+    'bad-grammar':'Ses tanıma ayarı hatalı (bad-grammar).',
+  };
+
+  let rec=null, gen=0, startedAt=0, quickEnds=0, startTimer=null, lastGesture=false, netFails=0, pendingInterim='', committed=new Map(), fatal=false;
+
+  function startNow(gesture){
+    if(!SR || !want) return;
+    if(listening){ log('zaten dinliyor'); return; }
+    lastGesture=gesture; fatal=false;
+    if(rec){ const old=rec; rec=null; try{ old.onstart=old.onresult=old.onerror=old.onend=null; old.abort(); }catch(e){} }
+    const my=++gen;
+    const r=new SR();
+    r.lang='tr-TR'; r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
+    r.onstart=()=>{ if(my!==gen) return; clearTimeout(startTimer); listening=true; startedAt=Date.now(); committed=new Map(); pendingInterim=''; hideAlert(); showErr(''); setUI(); log('onstart'); };
+    r.onaudiostart=()=>{ if(my===gen) log('audiostart'); };
+    r.onresult=(e)=>{
+      if(my!==gen) return;
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const res=e.results[i], t=res[0].transcript;
+        if(res.isFinal){
+          const prev=committed.get(i);
+          if(prev!==undefined){
+            // iOS aynı indeksi tekrar final gönderebilir
+            if(t===prev || prev.startsWith(t)){ log('aynı indeks tekrar #'+i); continue; }
+            if(t.startsWith(prev)){ committed.set(i,t); commitText(t.slice(prev.length),'ek#'+i); continue; }
+            log('indeks #'+i+' değişti, atlandı: '+t); continue;
+          }
+          committed.set(i,t); commitText(t,'final#'+i);
+        } else interim+=t;
+      }
+      pendingInterim=interim; live.textContent=interim;
+      netFails=0;
+    };
+    r.onerror=(e)=>{
+      if(my!==gen) return;
+      const code=e.error; log('onerror: '+code+(e.message?' '+e.message:''));
+      if(code==='no-speech'||code==='aborted') return;
+      if(code==='not-allowed'||code==='service-not-allowed'){
+        if(lastGesture){ // dokunuşla başlatıldı ve yine reddedildi → gerçek izin sorunu
+          fatal=true; want=false; unlock(); hideAlert(); showErr(ERR_TR[code]); setUI(); stxt.textContent='Durduruldu: izin yok';
+        } else needTap('Safari otomatik başlatmaya izin vermedi');
+        return;
+      }
+      if(code==='network'){ netFails++; showErr(ERR_TR.network); if(netFails>=3){ fatal=true; want=false; unlock(); setUI(); stxt.textContent='Durduruldu: internet yok'; } return; }
+      if(ERR_TR[code]){ fatal=true; want=false; unlock(); showErr(ERR_TR[code]); setUI(); return; }
+      showErr('Ses tanıma hatası: '+code);
+    };
+    r.onend=()=>{
+      if(my!==gen) return;
+      clearTimeout(startTimer);
+      listening=false;
+      if(pendingInterim.trim()){ commitText(pendingInterim,'yarım-sonuç'); pendingInterim=''; } // iOS bazen son parçayı final yapmadan kapanır
+      live.textContent=''; setUI();
+      const dur=Date.now()-startedAt; log('onend ('+dur+' ms)');
+      if(!want || alertOn || fatal) return;
+      quickEnds = dur<1200 ? quickEnds+1 : 0;
+      if(quickEnds>=3){ quickEnds=0; needTap('Dinleme sürekli kapanıyor'); return; }
+      setTimeout(()=>{ if(want && !listening && my===gen && !alertOn) startNow(false); }, netFails?1500:250);
+    };
+    rec=r; startedAt=Date.now();
+    try{ r.start(); log('start() '+(gesture?'[dokunuş]':'[otomatik]')); }
+    catch(e){ log('start() istisna: '+e.name+' '+e.message); if(gesture){ showErr('Başlatılamadı: '+e.message); } needTap('Başlatılamadı'); return; }
+    clearTimeout(startTimer);
+    startTimer=setTimeout(()=>{ if(my===gen && want && !listening){ log('onstart gelmedi'); needTap('Mikrofon açılamadı'); } }, 2500);
+  }
+  function stopNow(){
+    want=false; hideAlert(); unlock(); setUI();
+    try{ rec && rec.stop(); }catch(e){} // stop: son final sonuç yine gelir
+    log('durduruldu');
+  }
+
+  mic.addEventListener('click', ()=>{
+    unlockAudio();
+    if(!SR){ $('nodict').style.display='block'; return; }
+    if(want) stopNow();
+    else { want=true; quickEnds=0; netFails=0; showErr(''); setUI(); lock(); startNow(true); }
+  });
+  alertEl.addEventListener('click', ()=>{ unlockAudio(); hideAlert(); quickEnds=0; if(want){ lock(); startNow(true); } });
+
+  // nöbetçi: dinlemesi gerekirken 4 sn sessizce ölüyse uyar
+  let dead=0;
+  setInterval(()=>{ if(want && !listening && !alertOn){ if(++dead>=4) needTap('Dinleme yeniden başlamadı'); } else dead=0; }, 1000);
+
+  document.addEventListener('visibilitychange', ()=>{
+    log('görünürlük: '+document.visibilityState);
+    if(document.visibilityState==='visible' && want){ lock(); if(!listening) startNow(false); }
+  });
+
+  // ---------- fiş blokları / kopyalama ----------
+  function blocks(){
+    const lines=txt.value.split('\n'), out=[]; let cur=null, pos=0;
+    lines.forEach(line=>{
+      const m=line.match(/^=== FİŞ (\d+) ===\s*$/);
+      if(m || !cur){ cur={title: m?'Fiş '+m[1]:'Başlıksız', start:pos, lines:[]}; out.push(cur); }
+      cur.lines.push(line); cur.end=pos+line.length; pos+=line.length+1;
+    });
+    return out.map(b=>({title:b.title,start:b.start,end:b.end,text:b.lines.join('\n').trim()})).filter(b=>b.text || b.title!=='Başlıksız');
+  }
+  function fillFisSelect(){
+    const sel=$('fsel'), prev=sel.value, bs=blocks();
+    sel.innerHTML='';
+    if(!bs.length){ const o=document.createElement('option'); o.textContent='Fiş yok'; o.value=''; sel.appendChild(o); sel.disabled=true; return; }
+    sel.disabled=false;
+    bs.forEach((b,i)=>{ const o=document.createElement('option'); o.value=String(i); o.textContent=b.title; sel.appendChild(o); });
+    sel.value = (prev!=='' && +prev<bs.length) ? prev : String(bs.length-1);
+  }
+  function selectAtCursor(){
+    const p=txt.selectionStart||0, bs=blocks();
+    const i=bs.findIndex(b=>p>=b.start && p<=b.end+1);
+    if(i>=0) $('fsel').value=String(i);
+  }
+  txt.addEventListener('click', selectAtCursor);
+  txt.addEventListener('keyup', selectAtCursor);
+
+  async function copyText(s,label){
+    if(!s){ toast('Kopyalanacak metin yok'); return; }
+    try{ await navigator.clipboard.writeText(s); toast(label); return; }catch(e){}
+    const ta=document.createElement('textarea'); ta.value=s; ta.setAttribute('readonly',''); ta.style.cssText='position:fixed;top:-1000px;font-size:16px';
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0,s.length);
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+    ta.remove(); toast(ok?label:'Kopyalanamadı — metne uzun basıp kopyala',2500);
+  }
+  $('copy').addEventListener('click', ()=>copyText(txt.value,'Tümü kopyalandı'));
+  $('copyone').addEventListener('click', ()=>{
+    const bs=blocks(), i=+$('fsel').value; const b=bs[i];
+    if(!b){ toast('Fiş yok'); return; }
+    copyText(b.text, b.title+' kopyalandı');
+  });
+
+  $('fis').addEventListener('click', newFis);
+  $('nl').addEventListener('click', newLine);
+  $('okn').addEventListener('click', unreadable);
+  $('undo').addEventListener('click', undo);
+  $('clear').addEventListener('click', function(){
+    if(this.dataset.c){ txt.value=''; fisNo=0; history=[]; save(); this.textContent='🗑 Temizle'; delete this.dataset.c; toast('Temizlendi'); }
+    else { this.dataset.c=1; this.textContent='Emin misin? Tekrar bas'; setTimeout(()=>{this.textContent='🗑 Temizle'; delete this.dataset.c;},3000); }
+  });
+  $('tsound').addEventListener('click', ()=>{ unlockAudio(); setTimeout(()=>beep(true),50); });
+  $('clog').addEventListener('click', ()=>copyText(navigator.userAgent+'\n'+logLines.join('\n'),'Günlük kopyalandı'));
+
+  // ---------- açılış ----------
+  $('nojs').style.display='none';
+  $('ver').textContent='v'+APP_VER+(standalone?' · ana ekran':'')+(isIOS?' · iOS':'');
+  load(); setUI(); fillFisSelect();
+  log('açıldı v'+APP_VER+' · SR='+(SR?'var':'yok')+' · standalone='+standalone);
+  log(navigator.userAgent);
+  if(!SR){
+    const nd=$('nodict');
+    nd.innerHTML = (isIOS && standalone)
+      ? 'Ana ekran modunda ses tanıma kullanılamıyor. Bu sayfayı <b>Safari</b>\'de aç: <a style="color:#fde68a" href="'+location.href+'" target="_blank">'+location.host+location.pathname+'</a>'
+      : 'Bu tarayıcıda ses tanıma yok. iPhone\'da <b>Safari</b>, bilgisayarda <b>Chrome</b> kullan. Bu arada elle yazabilirsin.';
+    nd.style.display='block';
+  }
+
+  // ---------- service worker ----------
+  if('serviceWorker' in navigator && /^https?:/.test(location.protocol)){
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{
+        const w=reg.installing; if(!w) return;
+        w.addEventListener('statechange',()=>{ if(w.state==='installed' && navigator.serviceWorker.controller) toast('Yeni sürüm hazır — sayfayı yenile',4000); });
+      });
+    }).catch(e=>log('SW kaydı başarısız: '+e.message));
+  }
+
+  // testler için
+  window.__fd={handleFinal, commitText, settings, blocks};
+})();
+</script>
+</body>
+</html>
