@@ -2,7 +2,7 @@
  * Sayfa: önce ağ (güncellemeler hemen gelsin), yoksa önbellek.
  * Diğer dosyalar: önbellekten ver, arkada tazele.
  * Sürüm değişince CACHE adını artır. */
-const CACHE = 'fis-dikte-v1.0.0';
+const CACHE = 'fis-dikte-v1.1.0';
 const ASSETS = ['./', 'index.html', 'tr-sayi.js', 'manifest.json',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/favicon-32.png'];
 

@@ -3,6 +3,10 @@
  * "iki yüz on beş lira elli kuruş"          -> "215,50 TL"
  * "kdv yüzde yirmi"                         -> "kdv %20"
  * "fiş no sıfır beş üç iki"                 -> "fiş no 0532"
+ * "tarih 01092026" / "sıfır bir sıfır dokuz iki bin yirmi altı" -> "01.09.2026"
+ * "altı çarpı iki yüz yirmi dokuz bin üç yüz yetmiş dört" -> "6 × 229 = 1374" (çarpım tutmazsa [KONTROL] ekler)
+ * "sıfır beş ka te beş yüz yirmi plakası"   -> "05 KT 520 plakası"
+ * Binlik nokta sadece kuruşlu/TL tutarlarda konur (1374 adet -> 1374).
  * Tek başına "bir" kelime olarak kalır ("bir fiş" bozulmaz).
  * Tarayıcıda window.TrSayi, Node'da module.exports.
  */
@@ -15,6 +19,13 @@
   const ALIAS = { 'sifir': 'sıfır', 'uc': 'üç', 'dort': 'dört', 'bes': 'beş', 'alti': 'altı', 'kirk': 'kırk',
     'altmis': 'altmış', 'yetmis': 'yetmiş', 'yuz': 'yüz', 'virgul': 'virgül', 'yuzde': 'yüzde', 'kurus': 'kuruş' };
 
+  const MONTHS = { 'ocak': 1, 'şubat': 2, 'mart': 3, 'nisan': 4, 'mayıs': 5, 'haziran': 6, 'temmuz': 7, 'ağustos': 8, 'eylül': 9, 'ekim': 10, 'kasım': 11, 'aralık': 12 };
+  // Türkçe harf okunuşları (plaka için)
+  const LETTERS = { 'a': 'A', 'be': 'B', 'ce': 'C', 'çe': 'Ç', 'de': 'D', 'e': 'E', 'fe': 'F', 'ge': 'G', 'he': 'H', 'ı': 'I', 'i': 'İ',
+    'je': 'J', 'ka': 'K', 'le': 'L', 'me': 'M', 'ne': 'N', 'o': 'O', 'ö': 'Ö', 'pe': 'P', 're': 'R', 'se': 'S', 'şe': 'Ş', 'te': 'T',
+    'u': 'U', 'ü': 'Ü', 've': 'V', 'ye': 'Y', 'ze': 'Z' };
+  const MULT = ['çarpı', 'carpi', 'kere', 'x', '×', '*'];
+  const BIR_OK = ['virgül', 'lira', 'kuruş', 'tl', 'adet', 'kg', 'gr', 'lt', 'tane', 'palet', 'ton', 'paket'];
   const lower = s => s.toLocaleLowerCase('tr-TR');
   const fmtInt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -119,9 +130,11 @@
     }
     items = merged;
 
+    items = fisStages(items, text);
+
     const isW = (it, k) => it && it.t === 'w' && it.key === k && !it.post;
     const isWany = (it, k) => it && it.t === 'w' && it.key === k;
-    const numStr = it => it.seq != null ? it.seq : (it.words || it.val >= 10000 ? fmtInt(it.val) : (it.digitStr || String(it.val)));
+    const numStr = it => it.seq != null ? it.seq : (it.digitStr || String(it.val));
     const decStr = it => it.seq != null ? it.seq : String(it.val);
     const pad2 = n => (n < 10 ? '0' : '') + n;
 
@@ -138,6 +151,7 @@
         }
         out.push({ s: '%' + numStr(b), post: b.post }); i += 1; continue;
       }
+      if (a.t === 'raw') { out.push({ s: a.s, post: a.post || '' }); continue; }
       if (a.t === 'num' && !a.post) {
         const b = items[i + 1], c = items[i + 2], d = items[i + 3];
         // X virgül Y
@@ -159,7 +173,7 @@
         // tek başına "bir" kelime olarak kalsın
         if (a.n === 1 && a.single && a.val === 1 && a.words && a.seq == null) {
           const nx = items[i + 1];
-          const keep = !(nx && nx.t === 'w' && ['virgül', 'lira', 'kuruş', 'tl', 'adet', 'kg', 'gr', 'lt', 'tane'].includes(nx.key));
+          const keep = !(nx && nx.t === 'w' && BIR_OK.includes(nx.key));
           if (keep) { out.push({ s: (a.pre || '') + a.rawWords[0], post: a.post }); continue; }
         }
         out.push({ s: (a.pre || '') + numStr(a), post: a.post });
@@ -177,7 +191,103 @@
     return out.map(o => o.s + (o.post || '')).join(' ').replace(/,,+/g, ',');
   }
 
-  const api = { convert, fmtInt };
+  // ---- Sevk fişi aşamaları: tarih, plaka, çarpım ----
+  const digitsOf = it => it.seq != null ? it.seq : (it.digitStr != null ? it.digitStr : (it.words ? null : String(it.val)));
+  const pad2 = n => (n < 10 ? '0' : '') + n;
+  function validDate(d, m, y) { return d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900 && y <= 2100; }
+  function dateFrom8(s) {
+    if (!/^\d{8}$/.test(s)) return null;
+    const d = +s.slice(0, 2), m = +s.slice(2, 4), y = +s.slice(4);
+    return validDate(d, m, y) ? s.slice(0, 2) + '.' + s.slice(2, 4) + '.' + s.slice(4) : null;
+  }
+  // Tek bir sayı olarak okunabiliyorsa değerini döndür
+  function parseOne(words) {
+    const it = tokenize(words.join(' '));
+    return it.length === 1 && it[0].t === 'num' && !it[0].post ? it[0].val : null;
+  }
+  function plateLetters(it, loose) {
+    if (!it || it.t !== 'w') return null;
+    const core = it.s.replace(/[.,;:!?]+$/, '');
+    if (LETTERS[it.key] && it.key.length <= 2) return LETTERS[it.key];
+    if (/^[A-ZÇĞİÖŞÜ]{1,3}$/u.test(core)) return core;
+    if (loose && /^[a-zçğıöşü]{1,3}$/u.test(core)) return core.toLocaleUpperCase('tr-TR');
+    return null;
+  }
+  function fisStages(items, text) {
+    const hasPlaka = /plaka/i.test(text);
+    const out = [];
+    for (let i = 0; i < items.length; i++) {
+      const a = items[i], b = items[i + 1], c = items[i + 2];
+      // TARİH: 8 haneli "01092026"
+      if (a.t === 'num' && digitsOf(a) && dateFrom8(digitsOf(a))) { out.push({ t: 'raw', s: dateFrom8(digitsOf(a)), post: a.post }); continue; }
+      // TARİH: "0109" + "2026"
+      if (a.t === 'num' && !a.post && b && b.t === 'num' && /^\d{4}$/.test(digitsOf(a) || '') && b.val >= 1900 && b.val <= 2100) {
+        const d = digitsOf(a); const r = dateFrom8(d + b.val);
+        if (r) { out.push({ t: 'raw', s: r, post: b.post }); i += 1; continue; }
+      }
+      // TARİH: "bir eylül iki bin yirmi altı"
+      if (a.t === 'num' && !a.post && b && b.t === 'w' && MONTHS[b.key.replace(/[.,]$/, '')] && c && c.t === 'num' && validDate(a.val, MONTHS[b.key.replace(/[.,]$/, '')], c.val)) {
+        out.push({ t: 'raw', s: pad2(a.val) + '.' + pad2(MONTHS[b.key.replace(/[.,]$/, '')]) + '.' + c.val, post: c.post }); i += 2; continue;
+      }
+      // PLAKA: il kodu (01-81) + 1-3 harf + 1-4 hane
+      if (a.t === 'num' && !a.post && a.val >= 1 && a.val <= 81) {
+        const ilStr = digitsOf(a);
+        const il = ilStr && ilStr.length === 2 ? ilStr : (a.words ? pad2(a.val) : null);
+        if (il) {
+          let j = i + 1, let_ = '';
+          while (j < items.length && let_.length < 3) {
+            const L = plateLetters(items[j], hasPlaka); if (!L) break;
+            let_ += L; j++; if (items[j - 1].post) break;
+          }
+          const n = items[j];
+          if (let_ && let_.length <= 3 && n && n.t === 'num' && n.val >= 1 && n.val <= 9999 && !items[j - 1].post) {
+            out.push({ t: 'raw', s: il + ' ' + let_ + ' ' + (digitsOf(n) || String(n.val)), post: n.post }); i = j; continue;
+          }
+        }
+      }
+      // ÇARPIM: A çarpı B [C]  — "229 1374" tek sayı gibi okunduysa böl
+      if (a.t === 'num' && !a.post && b && b.t === 'w' && MULT.includes(b.key) && !b.post && c && c.t === 'num') {
+        const A = a.val; let B = c.val, C = null, used = 2;
+        const d = items[i + 3];
+        if (!c.post && d && d.t === 'num') { C = d.val; used = 3; }
+        else if (c.rawWords && c.rawWords.length >= 2) {
+          for (let k = 1; k < c.rawWords.length; k++) {
+            const b1 = parseOne(c.rawWords.slice(0, k)), c1 = parseOne(c.rawWords.slice(k));
+            if (b1 != null && c1 != null && A * b1 === c1) { B = b1; C = c1; break; }
+          }
+        } else if (c.digitStr && c.digitStr.length >= 3) {
+          for (let k = 1; k < c.digitStr.length; k++) {
+            const b1 = +c.digitStr.slice(0, k), c1 = +c.digitStr.slice(k);
+            if (c.digitStr[k] !== '0' && A * b1 === c1) { B = b1; C = c1; break; }
+          }
+        }
+        let s = A + ' × ' + B + (C != null ? ' = ' + C : '');
+        if (C != null && A * B !== C) s += ' [KONTROL: ' + A + '×' + B + '=' + (A * B) + ']';
+        out.push({ t: 'raw', s, post: (used === 3 ? items[i + 3] : c).post }); i += used; continue;
+      }
+      out.push(a);
+    }
+    return out;
+  }
+
+  // Alanları satıra böl: "şirket ..." -> "\nşirket: ...", "05 KT 520 plakası" -> "\nplaka: 05 KT 520"
+  const DEFAULT_FIELDS = 'şirket, firma, müşteri, tarih, palet, ürün, plaka, şoför, irsaliye, fiş no';
+  function fieldify(text, fieldWords) {
+    const esc = w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const kws = (fieldWords == null ? DEFAULT_FIELDS : fieldWords).split(',').map(w => w.trim()).filter(Boolean);
+    let s = ' ' + text + ' ';
+    const plates = [];
+    s = s.replace(/(\d{2} [A-ZÇĞİÖŞÜ]{1,3} \d{1,4}) plaka(?:sı|lı)?(?![\p{L}\p{N}])/gu, (m, p) => { plates.push(p); return '\u0001' + (plates.length - 1) + '\u0001'; });
+    for (const kw of kws) {
+      // önünde sayı varsa ("6 palet") alan değil, miktardır
+      const re = new RegExp('(?<![\\p{L}\\p{N}])(?<!(?:^|\\s)\\d+ )(' + esc(kw) + ')(?:s?[ıiuü])?(?![\\p{L}\\p{N}:])\\s*:?\\s*', 'giu');
+      s = s.replace(re, (m, k) => '\n' + lower(k) + ': ');
+    }
+    s = s.replace(/\u0001(\d+)\u0001/g, (m, k) => '\nplaka: ' + plates[+k]);
+    return s.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{2,}/g, '\n').replace(/^ +| +$/g, '').replace(/: (?=\n|$)/g, ':');
+  }
+
+  const api = { convert, fmtInt, fieldify, DEFAULT_FIELDS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TrSayi = api;
 })(typeof window !== 'undefined' ? window : globalThis);

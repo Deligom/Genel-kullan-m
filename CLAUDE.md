@@ -1,14 +1,26 @@
 # CLAUDE.md — Fiş Dikte
 
 ## Ne bu?
-Muhasebe fişlerini sesli okuyup Türkçe metne çeviren, iPhone Safari'de çalışan tek sayfalık PWA.
+Tuğla satışında gönderilen **tırın sevk fişlerini** sesli okuyup Türkçe metne çeviren, iPhone Safari'de çalışan tek sayfalık PWA.
 Metin kopyalanıp analiz için Claude'a verilir. GitHub Pages'te statik olarak yayınlanır; sunucu, derleme, bağımlılık yok.
+
+## Fiş tipi
+Market fişi değil, tuğla sevk fişi. Tipik okuma:
+`şirket mümin kısalık tarih 01092026 palet petek yığma 6 çarpı 229 1374 adet 05 kt 520 plakası`
+Sayı çevirme + alan bölme açıkken çıktı:
+```
+şirket: mümin kısalık
+tarih: 01.09.2026
+palet: petek yığma 6 × 229 = 1374 adet
+plaka: 05 KT 520
+```
+Alanlar: şirket/müşteri, tarih (GGAAYYYY), palet tipi (petek, yığma…), palet × adet = toplam adet, plaka (il kodu + harf + numara).
 
 ## Dosyalar
 | Dosya | Görev |
 |---|---|
 | `index.html` | Arayüz + tüm uygulama mantığı (ses tanıma, komutlar, tekrar engelleme, uyarı, kopyalama, ayarlar) |
-| `tr-sayi.js` | Türkçe yazıyla sayı → rakam (`TrSayi.convert`). Tarayıcıda `window.TrSayi`, Node'da `module.exports` |
+| `tr-sayi.js` | `TrSayi.convert`: yazıyla sayı → rakam, tarih, plaka, çarpım kontrolü. `TrSayi.fieldify`: alanları satıra böler. Tarayıcıda `window.TrSayi`, Node'da `module.exports` |
 | `sw.js` | Service worker: sayfa ağ-önce, diğer dosyalar önbellek-önce. **Her yayında `CACHE` sürümünü artır** |
 | `manifest.json` | PWA tanımı (Türkçe ad, standalone, koyu tema, ikonlar) |
 | `icons/` | apple-touch-icon (180), 192, 512, maskable 512, favicon 32 |
@@ -21,7 +33,10 @@ Metin kopyalanıp analiz için Claude'a verilir. GitHub Pages'te statik olarak y
 - Göreli yollar kullan (`./`, `sw.js`) — site `/<repo>/` alt yolunda yayınlanıyor.
 - `localStorage` anahtarları: `fis-dikte-v1` (metin + fiş sayısı), `fis-dikte-ayar-v1` (ayarlar). Biçim değişirse göç kodu yaz, kullanıcının metnini silme.
 - Sürüm değişince üç yeri birlikte güncelle: `index.html` içindeki `APP_VER`, `sw.js` içindeki `CACHE`, ROADMAP'teki değişiklik kaydı.
-- Sayı dönüştürme **varsayılan kapalı** (ham metni bozmamak için); sadece yeni dikteye uygulanır.
+- Sayı dönüştürme ve alan bölme **varsayılan kapalı** (ham metni bozmamak için); sadece yeni dikteye uygulanır.
+- Binlik nokta sadece kuruşlu/TL tutarlarda (adetler `1374` kalır, fişte öyle yazıyor).
+- "A çarpı N" de N iki sayıya bölünebiliyorsa (`229 1374`, ya da yazıyla "iki yüz yirmi dokuz bin üç yüz yetmiş dört") A×B=C tutan bölme seçilir; C tutmazsa `[KONTROL: …]` eklenir — bu etiketi asla sessizce düzeltme, analizde işaret olarak kullanılıyor.
+- Önünde düz sayı olan alan kelimesi ("6 palet") alan başlığı sayılmaz.
 
 ## iOS ses tanıma — bilinen tuzaklar (kodda karşılıkları)
 - `continuous=true` güvenilmez; sessizlikte `onend` gelir → `onend`'de 250 ms sonra **yeni bir** `SpeechRecognition` örneğiyle yeniden başlat.

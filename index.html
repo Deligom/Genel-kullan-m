@@ -87,12 +87,14 @@
 
   <div class="help">
     <b>Sesli komutlar:</b> "<b>yeni satır</b>" → alt satır · "<b>yeni fiş</b>" → yeni fiş başlığı · "<b>sil son</b>" → son parçayı siler · "<b>okunmuyor</b>" → <b>[OKUNMUYOR]</b> etiketi koyar.<br>
-    <b>İpucu:</b> Kuruşları "virgül" diyerek oku (ör. "bin iki yüz elli virgül yetmiş beş"). Metin bu cihazda otomatik saklanır.
+    <b>Okuma sırası önerisi:</b> "şirket <i>Mümin Kısalık</i> · tarih <i>01092026</i> · palet <i>petek yığma 6 çarpı 229, 1374 adet</i> · <i>05 KT 520</i> plakası" → sonra "yeni fiş". Plakayı harf harf okuyabilirsin: "sıfır beş <b>ka te</b> beş yüz yirmi". Ayarlardan <b>Sayıları rakama çevir</b> ve <b>Alanları satıra böl</b>'ü aç. Metin bu cihazda otomatik saklanır.
   </div>
 
   <details class="help" id="setbox">
     <summary>⚙️ Ayarlar</summary>
-    <label class="set"><input type="checkbox" id="s_num"><span>Sayıları rakama çevir<small>"bin iki yüz elli virgül yetmiş beş" → 1.250,75 · "yüzde yirmi" → %20 · "on lira elli kuruş" → 10,50 TL. Kapalıyken tanıyıcının ham metni olduğu gibi yazılır. Sadece yeni dikteyi etkiler.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_num"><span>Sayıları rakama çevir (önerilir)<small>Tarih: "01092026" → 01.09.2026 · Palet: "altı çarpı iki yüz yirmi dokuz bin üç yüz yetmiş dört" → 6 × 229 = 1374 (tutmazsa [KONTROL]) · Plaka: "sıfır beş ka te beş yüz yirmi" → 05 KT 520 · Tutar: "bin iki yüz elli virgül yetmiş beş" → 1.250,75. Kapalıyken ham metin yazılır. Sadece yeni dikteyi etkiler.</small></span></label>
+    <label class="set"><input type="checkbox" id="s_fields"><span>Alanları satıra böl<small>"şirket … tarih … palet … plakası" → her alan kendi satırında: <b>şirket:</b> / <b>tarih:</b> / <b>palet:</b> / <b>plaka:</b>. Önünde sayı olan kelime ("6 palet") bölünmez.</small></span></label>
+    <label class="set" style="display:block"><span>Alan kelimeleri (virgülle)</span><input type="text" id="s_fw" style="width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:16px" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
     <label class="set"><input type="checkbox" id="s_dedupe"><span>Tekrar eden metni engelle<small>iPhone'da aynı cümlenin iki kez yazılmasını önler. Arka arkaya aynı tutarı okurken bir tanesi kayboluyorsa kapat.</small></span></label>
     <label class="set"><input type="checkbox" id="s_sound"><span>Dinleme durunca sesli uyar<small>Sessiz modu (yan tuş) kapalı olmalı.</small></span></label>
     <div class="row"><button id="tsound">🔔 Sesi test et</button><button id="clog">Günlüğü kopyala</button></div>
@@ -114,7 +116,7 @@
 <script>
 (function(){
   'use strict';
-  const APP_VER='1.0.0';
+  const APP_VER='1.1.0';
   const $ = id => document.getElementById(id);
   const txt=$('txt'), live=$('live'), mic=$('mic'), dot=$('dot'), stxt=$('stxt'), alertEl=$('alert');
   const KEY='fis-dikte-v1', SKEY='fis-dikte-ayar-v1';
@@ -131,10 +133,13 @@
   }
 
   // ---------- ayarlar ----------
-  const settings={num:false, dedupe:true, sound:true};
+  const settings={num:false, fields:false, fieldWords:null, dedupe:true, sound:true};
   try{ Object.assign(settings, JSON.parse(localStorage.getItem(SKEY)||'{}')); }catch(e){}
   function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(settings)); }catch(e){} }
-  [['s_num','num'],['s_dedupe','dedupe'],['s_sound','sound']].forEach(([id,k])=>{
+  if(settings.fieldWords==null && window.TrSayi) settings.fieldWords=TrSayi.DEFAULT_FIELDS;
+  $('s_fw').value=settings.fieldWords||'';
+  $('s_fw').addEventListener('change',()=>{ settings.fieldWords=$('s_fw').value; saveSettings(); log('alan kelimeleri: '+settings.fieldWords); });
+  [['s_num','num'],['s_fields','fields'],['s_dedupe','dedupe'],['s_sound','sound']].forEach(([id,k])=>{
     const el=$(id); el.checked=!!settings[k];
     el.addEventListener('change',()=>{ settings[k]=el.checked; saveSettings(); log('ayar '+k+'='+el.checked); });
   });
@@ -153,7 +158,9 @@
   function append(s){
     if(!s) return;
     const v=txt.value;
-    const needSpace = v && !/\s$/.test(v);
+    if(s[0]==='\n' && (!v || v.endsWith('\n'))) s=s.slice(1);
+    if(!s) return;
+    const needSpace = v && !/\s$/.test(v) && s[0]!=='\n';
     const piece = (needSpace?' ':'')+s;
     history.push(piece);
     txt.value = v+piece; save(); txt.scrollTop=txt.scrollHeight;
@@ -175,7 +182,14 @@
 
   // Türkçe harflerde \b çalışmaz; harf/rakam olmayan sınır kullan
   const CMD_RE=/(?<![\p{L}\p{N}])(yeni satır|yeni satir|alt satır|alt satir|yeni fiş|yeni fis|sil son|son parçayı sil|okunmuyor|okunmuyo)(?![\p{L}\p{N}])/gu;
-  function conv(s){ s=s.trim(); if(!s) return ''; if(settings.num && window.TrSayi){ try{ return TrSayi.convert(s); }catch(e){ log('sayı hatası '+e.message); } } return s; }
+  function conv(s){
+    s=s.trim(); if(!s || !window.TrSayi) return s;
+    try{
+      if(settings.num) s=TrSayi.convert(s);
+      if(settings.fields) s=TrSayi.fieldify(s, settings.fieldWords);
+    }catch(e){ log('dönüştürme hatası '+e.message); }
+    return s;
+  }
   function handleFinal(raw){
     const t=(raw||'').trim(); if(!t) return;
     const low=t.toLocaleLowerCase('tr-TR'); // tr-TR'de uzunluk değişmez, indeksler eşleşir

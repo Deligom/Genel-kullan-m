@@ -69,6 +69,11 @@ window.webkitSpeechRecognition=FakeSR; window.SpeechRecognition=FakeSR;`;
   eq('kalıcı kayıt', await p.evaluate(() => JSON.parse(localStorage.getItem('fis-dikte-v1')).n), 2);
   eq('SW kayıtlı', await p.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())), true);
 
+  // tuğla sevk fişi: sayı + alan bölme açık
+  await p.evaluate(() => { document.getElementById('txt').value = ''; Object.assign(window.__fd.settings, { num: true, fields: true }); });
+  await p.click('#fis');
+  await p.evaluate(() => window.__fd.handleFinal('şirket mümin kısalık tarih 01092026 palet petek yığma 6 çarpı 229 1374 adet 05 kt 520 plakası yeni fiş şirket ali'));
+  eq('sevk fişi', await val(), '=== FİŞ 3 ===\nşirket: mümin kısalık\ntarih: 01.09.2026\npalet: petek yığma 6 × 229 = 1374 adet\nplaka: 05 KT 520\n\n=== FİŞ 4 ===\nşirket: ali');
   if (process.env.SHOT) { await p.setViewportSize({ width: 440, height: 956 }); await p.screenshot({ path: process.env.SHOT }); }
   eq('sayfa hatası yok', errs.join(';'), '');
   await b.close(); console.log(fail ? fail + ' HATA' : 'hepsi geçti'); process.exit(fail ? 1 : 0);
